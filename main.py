@@ -17,6 +17,16 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Webhook Gateway Validation System", lifespan=lifespan)
 
+# Add CORS middleware for frontend
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for simple HTML dashboard
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Include routers first
 app.include_router(webhook_routes.router, tags=["webhook"])
 app.include_router(admin_routes.router, prefix="/admin", tags=["admin"])
@@ -30,5 +40,5 @@ async def read_root():
     }
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=False)
 

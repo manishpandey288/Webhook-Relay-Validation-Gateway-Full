@@ -8,3 +8,4 @@ pydantic-settings==2.1.0
 httpx==0.25.2
 # Python 3.12 compatible versions
 
+cryptography

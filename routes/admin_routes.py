@@ -169,3 +169,31 @@ async def get_dead_letters(
         ]
     }
 
+@router.get("/events")
+async def list_events(
+    tenant_id: Optional[str] = None,
+    limit: int = 50,
+    db: Session = Depends(get_db)
+):
+    """List recent events"""
+    query = db.query(WebhookEvent)
+    if tenant_id:
+        query = query.filter(WebhookEvent.tenant_id == tenant_id)
+    
+    events = query.order_by(desc(WebhookEvent.created_at)).limit(limit).all()
+    
+    return {
+        "events": [
+            {
+                "id": e.id,
+                "tenant_id": e.tenant_id,
+                "event_type": e.event_type,
+                "status": e.status,
+                "retry_count": e.retry_count,
+                "created_at": e.created_at.isoformat() if e.created_at else None,
+                "delivered_at": e.delivered_at.isoformat() if e.delivered_at else None
+            }
+            for e in events
+        ]
+    }
+

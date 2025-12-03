@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webhook Gateway Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 32px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        select, input, button {
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        button.danger {
+            background: #dc3545;
+        }
+
+        button.danger:hover {
+            background: #c82333;
+        }
+
+        button.success {
+            background: #28a745;
+        }
+
+        button.success:hover {
+            background: #218838;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .metric-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .metric-label {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .metric-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        .metric-value.success { color: #28a745; }
+        .metric-value.danger { color: #dc3545; }
+        .metric-value.warning { color: #ffc107; }
+
+        .section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .section h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .status-delivered { background: #d4edda; color: #155724; }
+        .status-failed { background: #f8d7da; color: #721c24; }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-processing { background: #d1ecf1; color: #0c5460; }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .attempts-details {
+            background: #f8f9fa;
+            padding: 15px;
+            margin-top: 10px;
+            border-radius: 5px;
+        }
+
+        .attempts-details h4 {
+            margin-bottom: 10px;
+            color: #495057;
+        }
+
+        .attempts-table {
+            font-size: 13px;
+        }
+
+        .attempts-table th,
+        .attempts-table td {
+            padding: 8px;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Webhook Gateway Dashboard</h1>
+
+        <div class="header">
+            <div class="controls">
+                <select id="tenantFilter">
+                    <option value="">All Tenants</option>
+                </select>
+                <button onclick="loadData()">Refresh</button>
+            </div>
+        </div>
+
+        <div id="error" class="error hidden"></div>
+
+        <!-- Metrics Section -->
+        <div class="metrics-grid" id="metricsGrid">
+            <div class="metric-card">
+                <div class="metric-label">Total Delivered</div>
+                <div class="metric-value success" id="metricDelivered">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Total Failed</div>
+                <div class="metric-value danger" id="metricFailed">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Pending</div>
+                <div class="metric-value warning" id="metricPending">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Dead Letters</div>
+                <div class="metric-value danger" id="metricDLQ">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Success Rate</div>
+                <div class="metric-value" id="metricSuccessRate">0%</div>
+            </div>
+        </div>
+
+        <!-- Recent Events Section -->
+        <div class="section">
+            <h2>Recent Events</h2>
+            <div id="eventsLoading" class="loading">Loading events...</div>
+            <div id="eventsEmpty" class="empty hidden">No events found</div>
+            <table id="eventsTable" class="hidden">
+                <thead>
+                    <tr>
+                        <th>Event ID</th>
+                        <th>Tenant ID</th>
+                        <th>Event Type</th>
+                        <th>Status</th>
+                        <th>Retry Count</th>
+                        <th>Created At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="eventsBody"></tbody>
+            </table>
+        </div>
+
+        <!-- Dead Letter Queue Section -->
+        <div class="section">
+            <h2>Dead-Letter Queue</h2>
+            <div id="dlqLoading" class="loading">Loading dead letters...</div>
+            <div id="dlqEmpty" class="empty hidden">No dead-letter events</div>
+            <table id="dlqTable" class="hidden">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Event ID</th>
+                        <th>Tenant ID</th>
+                        <th>Event Type</th>
+                        <th>Failure Reason</th>
+                        <th>Retry Count</th>
+                        <th>Replayed</th>
+                        <th>Created At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="dlqBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:8000';
+
+        // Load all data
+        async function loadData() {
+            await Promise.all([
+                loadMetrics(),
+                loadEvents(),
+                loadDeadLetters(),
+                loadTenants()
+            ]);
+        }
+
+        // Show error message
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.classList.remove('hidden');
+            setTimeout(() => errorDiv.classList.add('hidden'), 5000);
+        }
+
+        // Load metrics
+        async function loadMetrics() {
+            try {
+                const tenantId = document.getElementById('tenantFilter').value || null;
+                const url = tenantId 
+                    ? `${API_BASE}/admin/metrics?tenant_id=${tenantId}`
+                    : `${API_BASE}/admin/metrics`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                const summary = data.summary || {};
+                document.getElementById('metricDelivered').textContent = summary.delivered || 0;
+                document.getElementById('metricFailed').textContent = summary.failed || 0;
+                document.getElementById('metricPending').textContent = summary.pending || 0;
+                document.getElementById('metricDLQ').textContent = summary.dead_letter || 0;
+                document.getElementById('metricSuccessRate').textContent = 
+                    (summary.success_rate || 0) + '%';
+            } catch (error) {
+                console.error('Error loading metrics:', error);
+                showError('Failed to load metrics');
+            }
+        }
+
+        // Load events
+        async function loadEvents() {
+            try {
+                document.getElementById('eventsLoading').classList.remove('hidden');
+                document.getElementById('eventsTable').classList.add('hidden');
+                document.getElementById('eventsEmpty').classList.add('hidden');
+
+                const tenantId = document.getElementById('tenantFilter').value || null;
+                const url = tenantId 
+                    ? `${API_BASE}/admin/events?tenant_id=${tenantId}&limit=20`
+                    : `${API_BASE}/admin/events?limit=20`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                document.getElementById('eventsLoading').classList.add('hidden');
+                
+                const events = data.events || [];
+                if (events.length === 0) {
+                    document.getElementById('eventsEmpty').classList.remove('hidden');
+                    return;
+                }
+
+                const tbody = document.getElementById('eventsBody');
+                tbody.innerHTML = '';
+                
+                events.forEach(event => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${event.id}</td>
+                        <td>${event.tenant_id || '-'}</td>
+                        <td>${event.event_type}</td>
+                        <td><span class="status-badge status-${event.status.toLowerCase()}">${event.status}</span></td>
+                        <td>${event.retry_count}</td>
+                        <td>${event.created_at ? new Date(event.created_at).toLocaleString() : '-'}</td>
+                        <td>
+                            <button onclick="showAttempts(${event.id})">View Attempts</button>
+                            <button onclick="replayEvent(${event.id})" class="success">Replay</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+                
+                document.getElementById('eventsTable').classList.remove('hidden');
+            } catch (error) {
+                console.error('Error loading events:', error);
+                document.getElementById('eventsLoading').classList.add('hidden');
+                showError('Failed to load events');
+            }
+        }
+
+        // Load dead letters
+        async function loadDeadLetters() {
+            try {
+                document.getElementById('dlqLoading').classList.remove('hidden');
+                document.getElementById('dlqTable').classList.add('hidden');
+                document.getElementById('dlqEmpty').classList.add('hidden');
+
+                const tenantId = document.getElementById('tenantFilter').value || null;
+                const url = tenantId 
+                    ? `${API_BASE}/admin/dead-letters?tenant_id=${tenantId}`
+                    : `${API_BASE}/admin/dead-letters`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                document.getElementById('dlqLoading').classList.add('hidden');
+                
+                const deadLetters = data.dead_letters || [];
+                if (deadLetters.length === 0) {
+                    document.getElementById('dlqEmpty').classList.remove('hidden');
+                    return;
+                }
+
+                const tbody = document.getElementById('dlqBody');
+                tbody.innerHTML = '';
+                
+                deadLetters.forEach(dl => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${dl.id}</td>
+                        <td>${dl.webhook_event_id}</td>
+                        <td>${dl.tenant_id || '-'}</td>
+                        <td>${dl.event_type}</td>
+                        <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis;">${dl.failure_reason || '-'}</td>
+                        <td>${dl.retry_count}</td>
+                        <td>${dl.replayed ? 'Yes' : 'No'}</td>
+                        <td>${dl.created_at ? new Date(dl.created_at).toLocaleString() : '-'}</td>
+                        <td>
+                            <button onclick="replayEvent(${dl.webhook_event_id || dl.id})" 
+                                    ${dl.replayed ? 'disabled' : ''} 
+                                    class="success">
+                                Replay
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+                
+                document.getElementById('dlqTable').classList.remove('hidden');
+            } catch (error) {
+                console.error('Error loading dead letters:', error);
+                document.getElementById('dlqLoading').classList.add('hidden');
+                showError('Failed to load dead letters');
+            }
+        }
+
+        // Load tenants for filter
+        async function loadTenants() {
+            try {
+                // Try to get unique tenant IDs from events
+                const response = await fetch(`${API_BASE}/admin/metrics`);
+                const data = await response.json();
+                
+                const tenantSet = new Set();
+                if (data.recent_events) {
+                    data.recent_events.forEach(event => {
+                        if (event.tenant_id) {
+                            tenantSet.add(event.tenant_id);
+                        }
+                    });
+                }
+                
+                const select = document.getElementById('tenantFilter');
+                // Keep "All Tenants" option
+                const allOption = select.options[0];
+                select.innerHTML = '';
+                select.appendChild(allOption);
+                
+                Array.from(tenantSet).sort().forEach(tenantId => {
+                    const option = document.createElement('option');
+                    option.value = tenantId;
+                    option.textContent = tenantId;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading tenants:', error);
+            }
+        }
+
+        // Show attempts for an event
+        async function showAttempts(eventId) {
+            try {
+                const response = await fetch(`${API_BASE}/admin/events/${eventId}/attempts`);
+                const data = await response.json();
+                
+                const attempts = data.attempts || [];
+                if (attempts.length === 0) {
+                    alert('No attempts recorded for this event');
+                    return;
+                }
+                
+                let attemptsHtml = '<div class="attempts-details"><h4>Attempt History for Event ' + eventId + '</h4>';
+                attemptsHtml += '<table class="attempts-table"><thead><tr><th>#</th><th>Status</th><th>Response Code</th><th>Error</th><th>Retry Delay</th><th>Attempted At</th></tr></thead><tbody>';
+                
+                attempts.forEach(attempt => {
+                    attemptsHtml += `
+                        <tr>
+                            <td>${attempt.attempt_number}</td>
+                            <td><span class="status-badge status-${attempt.status.toLowerCase()}">${attempt.status}</span></td>
+                            <td>${attempt.response_code || '-'}</td>
+                            <td>${attempt.error_message || '-'}</td>
+                            <td>${attempt.retry_delay ? attempt.retry_delay + 's' : '-'}</td>
+                            <td>${attempt.attempted_at ? new Date(attempt.attempted_at).toLocaleString() : '-'}</td>
+                        </tr>
+                    `;
+                });
+                
+                attemptsHtml += '</tbody></table></div>';
+                
+                alert('Attempt History:\n\n' + attempts.map(a => 
+                    `#${a.attempt_number}: ${a.status} - ${a.error_message || 'Success'}`
+                ).join('\n'));
+            } catch (error) {
+                console.error('Error loading attempts:', error);
+                showError('Failed to load attempt history');
+            }
+        }
+
+        // Replay event
+        async function replayEvent(eventId) {
+            if (!confirm('Are you sure you want to replay this event?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/admin/replay/${eventId}`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    alert('Event replayed successfully!');
+                    loadData();
+                } else {
+                    const error = await response.json();
+                    showError(error.detail || 'Failed to replay event');
+                }
+            } catch (error) {
+                console.error('Error replaying event:', error);
+                showError('Failed to replay event');
+            }
+        }
+
+        // Filter by tenant
+        document.getElementById('tenantFilter').addEventListener('change', loadData);
+
+        // Auto-refresh every 30 seconds
+        setInterval(loadData, 30000);
+
+        // Initial load
+        loadData();
+    </script>
+</body>
+</html>
+
