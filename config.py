@@ -3,11 +3,22 @@ import os
 import sys
 
 class Settings(BaseSettings):
-    # Database - default to the Railway MySQL connection string if env not set
-    DATABASE_URL: str = os.getenv(
-        "DATABASE_URL",
-        "mysql+pymysql://root:AZHMTtrJKSmuvruJHVxZeDTHpGZSEWih@mysql.railway.internal:3306/railway",
-    ).strip()
+    # Database - prefer explicit DATABASE_URL, otherwise try Railway-provided
+    # variables (MYSQL_URL / MYSQL_PUBLIC_URL). Clean up whitespace/newlines
+    raw_db = os.getenv("DATABASE_URL") or os.getenv("MYSQL_URL") or os.getenv("MYSQL_PUBLIC_URL") or ""
+    # remove any accidental newlines or surrounding whitespace
+    raw_db = raw_db.replace("\n", "").replace("\r", "").strip()
+
+    if raw_db:
+        # Some Railway values use the 'mysql://' scheme; SQLAlchemy + PyMySQL
+        # requires 'mysql+pymysql://'. Convert if necessary.
+        if raw_db.startswith("mysql://"):
+            DATABASE_URL: str = raw_db.replace("mysql://", "mysql+pymysql://", 1)
+        else:
+            DATABASE_URL: str = raw_db
+    else:
+        # Development fallback
+        DATABASE_URL: str = "sqlite:///./gateway.db"
     
     # Webhook Settings
     WEBHOOK_SECRET: str = "your-secret-key-change-this"
