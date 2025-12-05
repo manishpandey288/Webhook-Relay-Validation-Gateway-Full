@@ -1,8 +1,9 @@
 from pydantic_settings import BaseSettings
+import envparse
 
 class Settings(BaseSettings):
     # Database
-    DATABASE_URL: str = "mysql+pymysql://root:Manish%4003@localhost/gateway_validation"
+    DATABASE_URL: str = envparse.env("DATABASE_URL")
     
     # Webhook Settings
     WEBHOOK_SECRET: str = "your-secret-key-change-this"
