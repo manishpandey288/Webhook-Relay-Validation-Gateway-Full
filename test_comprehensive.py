@@ -11,7 +11,7 @@ import time
 from typing import Optional, Dict, Any
 
 # Configuration
-BASE_URL = "http://127.0.0.1:8000"
+BASE_URL = "https://webhook-relay-validation-gateway-full-production.up.railway.app"
 WEBHOOK_URL = f"{BASE_URL}/webhook"
 SECRET = "your-secret-key-change-this"  # Must match config.py
 TENANT_ID = "test-tenant-123"

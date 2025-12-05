@@ -6,12 +6,8 @@ import sys
 
 def _get_database_url() -> str:
     """Compute DATABASE_URL from env vars, cleaning up newlines and normalizing scheme."""
-    raw_db = (
-        os.getenv("DATABASE_URL")
-        or os.getenv("MYSQL_URL")
-        or os.getenv("MYSQL_PUBLIC_URL")
-        or ""
-    )
+    raw_db = os.getenv("DATABASE_URL", "")
+    
     # Remove newlines and whitespace
     raw_db = raw_db.replace("\n", "").replace("\r", "").strip()
 
@@ -22,7 +18,7 @@ def _get_database_url() -> str:
         else:
             return raw_db
     else:
-        # Development fallback
+        # If no DATABASE_URL, use SQLite fallback
         return "sqlite:///./gateway.db"
 
 
@@ -34,7 +30,7 @@ class Settings(BaseSettings):
 
     # Webhook Settings
     WEBHOOK_SECRET: str = "your-secret-key-change-this"
-    INTERNAL_WEBHOOK_URL: str = "http://localhost:8001/internal/webhook"
+    INTERNAL_WEBHOOK_URL: str = "https://webhook-relay-validation-gateway-full-production.up.railway.app/internal/webhook"
 
     # Rate Limiting
     DEFAULT_RATE_LIMIT: int = 10  # events per second per tenant
