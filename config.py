@@ -1,86 +1,57 @@
 from pydantic_settings import BaseSettings
+from pydantic import field_validator, Field
 import os
 import sys
 
-class Settings(BaseSettings):
-    # Database - prefer explicit DATABASE_URL, otherwise try Railway-provided
-    # variables (MYSQL_URL / MYSQL_PUBLIC_URL). Clean up whitespace/newlines
-    raw_db = os.getenv("DATABASE_URL") or os.getenv("MYSQL_URL") or os.getenv("MYSQL_PUBLIC_URL") or ""
-    # remove any accidental newlines or surrounding whitespace
+
+def _get_database_url() -> str:
+    """Compute DATABASE_URL from env vars, cleaning up newlines and normalizing scheme."""
+    raw_db = (
+        os.getenv("DATABASE_URL")
+        or os.getenv("MYSQL_URL")
+        or os.getenv("MYSQL_PUBLIC_URL")
+        or ""
+    )
+    # Remove newlines and whitespace
     raw_db = raw_db.replace("\n", "").replace("\r", "").strip()
 
     if raw_db:
-        # Some Railway values use the 'mysql://' scheme; SQLAlchemy + PyMySQL
-        # requires 'mysql+pymysql://'. Convert if necessary.
+        # Convert mysql:// to mysql+pymysql:// for SQLAlchemy + PyMySQL
         if raw_db.startswith("mysql://"):
-            DATABASE_URL: str = raw_db.replace("mysql://", "mysql+pymysql://", 1)
+            return raw_db.replace("mysql://", "mysql+pymysql://", 1)
         else:
-            DATABASE_URL: str = raw_db
+            return raw_db
     else:
         # Development fallback
-        DATABASE_URL: str = "sqlite:///./gateway.db"
-    
+        return "sqlite:///./gateway.db"
+
+
+class Settings(BaseSettings):
+    """Application configuration loaded from environment variables."""
+
+    # Database connection URL (computed from _get_database_url)
+    DATABASE_URL: str = Field(default_factory=_get_database_url)
+
     # Webhook Settings
     WEBHOOK_SECRET: str = "your-secret-key-change-this"
     INTERNAL_WEBHOOK_URL: str = "http://localhost:8001/internal/webhook"
-    
+
     # Rate Limiting
     DEFAULT_RATE_LIMIT: int = 10  # events per second per tenant
     MAX_RATE_LIMIT: int = 50
-    
+
     # Retry Settings
     MAX_RETRY_ATTEMPTS: int = 8
     INITIAL_RETRY_DELAY: int = 1  # seconds
-    
+
     # Worker Settings
     WORKER_POLL_INTERVAL: int = 2  # seconds between polling for pending events
-    
+
     class Config:
         env_file = ".env"
         case_sensitive = True
 
-    # Read raw value and strip whitespace/newlines
-    _raw_db = os.getenv("DATABASE_URL", "").strip()
 
-    # If Railway inserted a placeholder like "railway" or the value is empty,
-    # fall back to a local SQLite DB for development. In production you must
-    # set `DATABASE_URL` to a full connection string (mysql+pymysql://... or
-    # postgresql://...)
-    if _raw_db and _raw_db.lower() != "railway":
-        DATABASE_URL: str = _raw_db
-    else:
-        # Development fallback
-        DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./gateway.db").strip()
-
-    # Webhook settings
-    WEBHOOK_SECRET: str = os.getenv("WEBHOOK_SECRET", "your-secret-key-change-this")
-    INTERNAL_WEBHOOK_URL: str = os.getenv("INTERNAL_WEBHOOK_URL", "http://localhost:8001/internal/webhook")
-
-    # Rate limiting
-    try:
-        DEFAULT_RATE_LIMIT: int = int(os.getenv("DEFAULT_RATE_LIMIT", "10"))
-    except ValueError:
-        DEFAULT_RATE_LIMIT: int = 10
-    try:
-        MAX_RATE_LIMIT: int = int(os.getenv("MAX_RATE_LIMIT", "50"))
-    except ValueError:
-        MAX_RATE_LIMIT: int = 50
-
-    # Retry settings
-    try:
-        MAX_RETRY_ATTEMPTS: int = int(os.getenv("MAX_RETRY_ATTEMPTS", "8"))
-    except ValueError:
-        MAX_RETRY_ATTEMPTS: int = 8
-    try:
-        INITIAL_RETRY_DELAY: int = int(os.getenv("INITIAL_RETRY_DELAY", "1"))
-    except ValueError:
-        INITIAL_RETRY_DELAY: int = 1
-
-    # Worker settings
-    try:
-        WORKER_POLL_INTERVAL: int = int(os.getenv("WORKER_POLL_INTERVAL", "2"))
-    except ValueError:
-        WORKER_POLL_INTERVAL: int = 2
 
 settings = Settings()
 
